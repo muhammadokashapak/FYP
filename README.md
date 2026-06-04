@@ -1,17 +1,45 @@
-# smart_glasses
+<h1 align="center">🧠 CHASHM AI — Smart Assistive Headset</h1>
 
-A new Flutter project.
+<p align="center">
+  <b>AI-powered real-time object detection system with voice feedback for assistive vision</b><br>
+  <i>Empowering visually impaired individuals through intelligent perception</i>
+</p>
 
-## Getting Started
+<p align="center">
+  <img src="https://img.shields.io/badge/AI-Computer%20Vision-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Model-YOLO-green?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Backend-FastAPI-black?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Hardware-ESP32--CAM-orange?style=for-the-badge">
+</p>
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 🚀 Overview
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+**CHASHM AI** is a full-stack intelligent assistive system designed to help visually impaired users perceive their surroundings in real-time.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+By combining **embedded hardware**, **deep learning**, and **real-time communication**, the system detects objects from a live camera feed and converts them into **audible feedback**, enabling users to navigate the world more independently.
+
+---
+
+## ✨ Key Highlights
+
+- 🎯 **Real-Time Object Detection** using custom-trained YOLO model (.tflite)  
+- 📷 **Live Video Streaming** via ESP32-CAM  
+- ⚡ **High-Performance Backend** with FastAPI + OpenCV  
+- 🌐 **Real-Time UI Updates** using WebSockets  
+- 🔊 **Voice Feedback System** with Text-to-Speech  
+- 🚀 **Optimized Inference** using INT8 quantization for low latency  
+
+---
+
+## 🏗️ System Architecture
+
+```text
+ESP32-CAM → FastAPI Backend → YOLO Model → Detection Output
+                                      ↓
+                           Text-to-Speech Engine
+                                      ↓
+                              Audio Feedback
+                                      ↓
+                          Real-Time Web Interface
