@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
 import '../services/inference_service.dart';
@@ -24,12 +25,19 @@ class DetectionProvider extends ChangeNotifier {
   String? _errorMessage;
   String? _currentStreamUrl;
   int _fps = 0;
-  final int _detectionCount = 0;
+  int _detectionCount = 0;
+  bool _isInitialized = false;
+  bool _isRunningInference = false;
+  Future<void>? _initializeFuture;
+  DateTime? _lastInferenceTime;
 
   // Internal frame processing tracking
   DateTime? _lastFpsCheckTime;
   int _framesInCurrentSecond = 0;
   StreamSubscription? _frameSubscription;
+
+  static const Duration _inferenceInterval = Duration(milliseconds: 800);
+  static const ui.Size _distanceFrameSize = ui.Size(320, 240);
 
   // Getters for UI
   Uint8List? get currentFrameBytes => _currentFrameBytes;
@@ -42,13 +50,21 @@ class DetectionProvider extends ChangeNotifier {
 
   /// Initialize services. Call once before starting stream.
   Future<void> initialize() async {
+    if (_isInitialized) return;
+    if (_initializeFuture != null) return _initializeFuture;
+
     debugPrint('[DetectionProvider] Initializing services...');
-    try {
+    _initializeFuture = () async {
       await _inferenceService.initialize();
       await _ttsService.init();
+      _isInitialized = true;
       _errorMessage = null;
       notifyListeners();
       debugPrint('[DetectionProvider] Initialization complete');
+    }();
+
+    try {
+      await _initializeFuture;
     } catch (e) {
       final message = e.toString();
       if (message.contains('labels.txt')) {
@@ -61,6 +77,8 @@ class DetectionProvider extends ChangeNotifier {
       debugPrint('[DetectionProvider] ERROR: $_errorMessage');
       notifyListeners();
       rethrow;
+    } finally {
+      _initializeFuture = null;
     }
   }
 
@@ -83,6 +101,8 @@ class DetectionProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await initialize();
+
       // Try ping but do NOT block stream attempt if it fails
       // Windows hotspot isolation can block ICMP/HTTP ping but still
       // allow MJPEG stream connections in some configurations
@@ -102,7 +122,7 @@ class DetectionProvider extends ChangeNotifier {
 
       // Listen to frame stream and run inference pipeline
       _frameSubscription = _streamService.frames.listen(
-        (Uint8List frameBytes) async {
+        (Uint8List frameBytes) {
           _onFrameReceived(frameBytes);
         },
         onError: (error) {
@@ -144,9 +164,46 @@ class DetectionProvider extends ChangeNotifier {
     }
 
     notifyListeners(); // Update UI with new frame
+    unawaited(_runInferenceOnFrame(frameBytes));
   }
 
   /// Run inference on frame and update detections.
+  Future<void> _runInferenceOnFrame(Uint8List frameBytes) async {
+    if (!_isStreaming || !_isInitialized || _isRunningInference) return;
+
+    final now = DateTime.now();
+    if (_lastInferenceTime != null &&
+        now.difference(_lastInferenceTime!) < _inferenceInterval) {
+      return;
+    }
+
+    _isRunningInference = true;
+    _lastInferenceTime = now;
+
+    try {
+      final detections = await _inferenceService.runInference(frameBytes);
+      if (!_isStreaming) return;
+
+      _detections = detections;
+      if (detections.isNotEmpty) {
+        _detectionCount += detections.length;
+        await _ttsService.announceDetections(detections, _distanceFrameSize);
+      }
+
+      _errorMessage = null;
+      notifyListeners();
+    } catch (e, stack) {
+      debugPrint('[DetectionProvider] Inference error: $e');
+      debugPrint('$stack');
+      if (_isStreaming) {
+        _errorMessage = 'Inference failed: $e';
+        notifyListeners();
+      }
+    } finally {
+      _isRunningInference = false;
+    }
+  }
+
   /// Stop streaming and clean up.
   void stopStream() {
     debugPrint('[DetectionProvider] Stopping stream');
@@ -156,6 +213,8 @@ class DetectionProvider extends ChangeNotifier {
     _streamService.stop();
     _detections = [];
     _currentFrameBytes = null;
+    _lastInferenceTime = null;
+    _isRunningInference = false;
     notifyListeners();
   }
 

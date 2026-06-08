@@ -7,18 +7,11 @@ import 'features/notifications/notifications_provider.dart';
 import 'features/shell/app_shell.dart';
 import 'features/settings/settings_provider.dart';
 import 'providers/detection_provider.dart';
-import 'services/detection_service.dart';
 import 'services/settings_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SettingsService.init();
-
-  // ── TEMPORARILY DISABLED — was crashing app before UI opens ──────────
-  // await DetectionService.instance.init();        // re-enable after stream works
-  await DetectionService.instance.init();        // re-enable after stream works
-  // await InferenceService.initialize();          // re-enable after stream works
-  // ─────────────────────────────────────────────────────────────────────
 
   runApp(const SmartGlassesApp());
 }

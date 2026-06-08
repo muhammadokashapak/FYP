@@ -1,14 +1,16 @@
 name: smart_glasses
 description: "Smart Glasses Assistance System - Flutter Android app for ESP32-CAM integration (dummy/production-ready shell)."
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.0
+  sdk: ">=3.10.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
+
   cupertino_icons: ^1.0.8
 
   # State management
@@ -17,26 +19,37 @@ dependencies:
   # Persistence for settings
   shared_preferences: ^2.3.3
 
-  # Camera (mobile preview now; replace with ESP32 stream later)
+  # Camera
   camera: ^0.11.0+2
-  # Runtime permission for camera (Android)
+  image_picker: ^1.1.2
+
+  # Permissions
   permission_handler: ^11.3.1
-  # TensorFlow Lite (ML)
+
+  # TensorFlow Lite
   tflite_flutter: ^0.12.1
-  # Text-to-speech
+
+  # Text to Speech
   flutter_tts: ^4.2.5
-  # Image decoding / resizing for ML
-  image: ^3.3.0
+
+  # Image processing
+  image: ^4.2.0
+
+  # WebView
   webview_flutter: ^4.13.1
+
+  # HTTP requests
   http: ^1.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
   flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/models/best_int8.tflite
     - assets/models/labels.txt

@@ -148,9 +148,9 @@ class DetectionService {
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
         final pixel = resized.getPixel(x, y);
-        final r = img.getRed(pixel);
-        final g = img.getGreen(pixel);
-        final b = img.getBlue(pixel);
+        final r = pixel.r.toInt().clamp(0, 255);
+        final g = pixel.g.toInt().clamp(0, 255);
+        final b = pixel.b.toInt().clamp(0, 255);
         input[0][y][x][0] = r;
         input[0][y][x][1] = g;
         input[0][y][x][2] = b;
@@ -256,4 +256,3 @@ class DetectionService {
     return 'front';
   }
 }
-

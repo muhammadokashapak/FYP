@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
 import '../features/notifications/models/alert_item.dart';
+import 'premium_widgets.dart';
 
 /// Card displaying a single alert (motion/object/person).
-/// Reusable and prepared for real-time updates.
 class AlertCard extends StatelessWidget {
   const AlertCard({
     super.key,
@@ -17,96 +18,97 @@ class AlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = _colorForType(theme, alert.type);
+    final color = _colorForType(alert.type);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      child: PremiumCard(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(_iconForType(alert.type), color: color, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            alert.title,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (!alert.read)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      alert.message,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _formatTime(alert.timestamp),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 0.25),
+                    color.withValues(alpha: 0.08),
                   ],
                 ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
               ),
-            ],
-          ),
+              child: Icon(_iconForType(alert.type), color: color, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          alert.title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (!alert.read)
+                        Container(
+                          width: 9,
+                          height: 9,
+                          decoration: const BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    alert.message,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _formatTime(alert.timestamp),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Color _colorForType(ThemeData theme, AlertType type) {
+  Color _colorForType(AlertType type) {
     switch (type) {
       case AlertType.motion:
-        return Colors.orange;
+        return const Color(0xFFF59E0B);
       case AlertType.object:
-        return Colors.blue;
+        return AppColors.indigo;
       case AlertType.person:
-        return Colors.green;
+        return AppColors.emerald;
     }
   }
 
   IconData _iconForType(AlertType type) {
     switch (type) {
       case AlertType.motion:
-        return Icons.directions_run;
+        return Icons.directions_run_rounded;
       case AlertType.object:
-        return Icons.category;
+        return Icons.category_rounded;
       case AlertType.person:
-        return Icons.person;
+        return Icons.person_rounded;
     }
   }
 

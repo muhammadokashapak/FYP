@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -6,11 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/theme/app_colors.dart';
 import '../../providers/detection_provider.dart';
 import '../../widgets/detection_overlay.dart';
+import '../../widgets/premium_widgets.dart';
 
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
+  const CameraScreen({super.key, this.isActive = true});
+
+  final bool isActive;
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -18,45 +22,80 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen> {
   late final String _streamUrl;
+  late DetectionProvider _detectionProvider;
   bool _hasInitialized = false;
+  bool _hasDetectionProvider = false;
+  bool _hasPendingLifecycleUpdate = false;
 
   @override
   void initState() {
     super.initState();
     // Use the configured ESP32 stream URL or default
     _streamUrl = ESP32Config.streamUrl;
+    _scheduleStreamLifecycleUpdate();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _detectionProvider = context.read<DetectionProvider>();
+    _hasDetectionProvider = true;
+  }
+
+  @override
+  void didUpdateWidget(covariant CameraScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      _scheduleStreamLifecycleUpdate();
+    }
+  }
+
+  void _scheduleStreamLifecycleUpdate() {
+    if (_hasPendingLifecycleUpdate) return;
+
+    _hasPendingLifecycleUpdate = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeStream();
+      _hasPendingLifecycleUpdate = false;
+      if (!mounted) return;
+
+      if (widget.isActive) {
+        _initializeStream();
+      } else {
+        _stopStream();
+      }
     });
   }
 
   Future<void> _initializeStream() async {
     if (!mounted) return;
 
-    final provider = context.read<DetectionProvider>();
-
     try {
-      await provider.startStream(_streamUrl);
-      if (mounted) {
+      await _detectionProvider.startStream(_streamUrl);
+      if (mounted && widget.isActive) {
         setState(() {
           _hasInitialized = true;
         });
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to start stream: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to start stream: $e')));
       }
     }
   }
 
   @override
   void dispose() {
-    if (mounted) {
-      context.read<DetectionProvider>().stopStream();
-    }
+    _stopStream();
     super.dispose();
+  }
+
+  void _stopStream() {
+    if (!_hasDetectionProvider) return;
+
+    _detectionProvider.stopStream();
+    _hasInitialized = false;
   }
 
   /// Decode JPEG bytes to ui.Image for display.
@@ -71,11 +110,18 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Smart Glasses Assistant'),
-        elevation: 0,
-      ),
-      body: Consumer<DetectionProvider>(
+      body: PremiumBackground(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+              child: AppBar(
+                title: const Text('Smart Glasses Stream'),
+                backgroundColor: Colors.transparent,
+              ),
+            ),
+            Expanded(
+              child: Consumer<DetectionProvider>(
         builder: (context, provider, _) {
           return Column(
             children: [
@@ -115,8 +161,9 @@ class _CameraScreenState extends State<CameraScreen> {
                           color: Colors.black,
                           child: const Center(
                             child: CircularProgressIndicator(
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           ),
                         )
@@ -143,8 +190,10 @@ class _CameraScreenState extends State<CameraScreen> {
                                 color: Colors.white,
                                 fontSize: 12,
                               ),
-                              textAlign: TextAlign.center,                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,                            ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
 
@@ -205,146 +254,176 @@ class _CameraScreenState extends State<CameraScreen> {
               // Status and information panel
               Expanded(
                 flex: 1,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  color: Colors.grey[100],
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (provider.errorMessage != null)
-                        Column(
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 32,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: PremiumCard(
+                    padding: const EdgeInsets.all(16),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: constraints.maxHeight,
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Error: ${provider.errorMessage}',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.red,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry Stream'),
-                              onPressed: () {
-                                provider.stopStream();
-                                _initializeStream();
-                              },
-                            ),
-                            const SizedBox(height: 8),
-                            // Fallback: try without /stream suffix
-                            TextButton(
-                              child: Text('Try alternate URL',
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-                              onPressed: () {
-                                provider.startStream('http://192.168.137.176:81/stream');
-                              },
-                            ),
-                          ],
-                        )
-                      else if (!provider.isStreaming && !_hasInitialized)
-                        const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(),
-                            SizedBox(height: 8),
-                            Text(
-                              'Initializing services...',
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ],
-                        )
-                      else if (!provider.isStreaming)
-                        const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.videocam_off, size: 32),
-                            SizedBox(height: 8),
-                            Text(
-                              'Stream disconnected',
-                              style: TextStyle(fontSize: 14),
-                            ),
-                          ],
-                        )
-                      else
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              provider.detections.isEmpty
-                                  ? 'Scanning for objects...'
-                                  : 'Detected objects:',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            if (provider.detections.isNotEmpty)
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                alignment: WrapAlignment.center,
-                                children: provider.detections
-                                    .take(3) // Show top 3
-                                    .map(
-                                      (det) => Chip(
-                                        label: Text(
-                                          '${det.label} (${(det.confidence * 100).toStringAsFixed(0)}%)',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        backgroundColor: Colors.blue,
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Total detections: ${provider.detectionCount}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
+                            child: Center(child: _buildStatusPanel(provider)),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-              Container(
-                color: Colors.black87,
-                padding: const EdgeInsets.all(6),
-                child: Text(
-                  'URL: ${provider.currentStreamUrl ?? "not set"}  '
-                  'Status: ${provider.isStreaming ? "🟢 live" : "🔴 offline"}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                    fontFamily: 'monospace',
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.darkSurface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'URL: ${provider.currentStreamUrl ?? "not set"}  '
+                    'Status: ${provider.isStreaming ? "live" : "offline"}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
             ],
           );
         },
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showSettingsDialog,
         tooltip: 'Stream Settings',
-        child: const Icon(Icons.settings),
+        backgroundColor: AppColors.indigo,
+        child: const Icon(Icons.settings_rounded),
       ),
+    );
+  }
+
+  Widget _buildStatusPanel(DetectionProvider provider) {
+    if (provider.errorMessage != null) {
+      return _buildErrorStatus(provider);
+    }
+
+    if (!provider.isStreaming && !_hasInitialized) {
+      return const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 8),
+          Text('Initializing services...', style: TextStyle(fontSize: 14)),
+        ],
+      );
+    }
+
+    if (!provider.isStreaming) {
+      return const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.videocam_off, size: 32),
+          SizedBox(height: 8),
+          Text('Stream disconnected', style: TextStyle(fontSize: 14)),
+        ],
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          provider.detections.isEmpty
+              ? 'Scanning for objects...'
+              : 'Detected objects:',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        if (provider.detections.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: provider.detections
+                .take(3)
+                .map(
+                  (det) => ConfidenceChip(
+                    label: det.label,
+                    confidence: det.confidence,
+                  ),
+                )
+                .toList(),
+          ),
+        const SizedBox(height: 8),
+        Text(
+          'Total detections: ${provider.detectionCount}',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorStatus(DetectionProvider provider) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 24),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'Error: ${provider.errorMessage}',
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.red,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry Stream'),
+              onPressed: () {
+                provider.stopStream();
+                _initializeStream();
+              },
+            ),
+            TextButton(
+              onPressed: () {
+                provider.startStream(ESP32Config.baseUrl);
+              },
+              child: Text(
+                'Try base URL',
+                style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -355,18 +434,11 @@ class _CameraScreenState extends State<CameraScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.videocam_off,
-              size: 48,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.videocam_off, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'Tap the settings button to start',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[400],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[400]),
             ),
           ],
         ),

@@ -7,11 +7,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:smart_glasses/main.dart';
+import 'package:smart_glasses/services/settings_service.dart';
 
 void main() {
   testWidgets('App builds smoke test', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await SettingsService.init();
+
     await tester.pumpWidget(const SmartGlassesApp());
     expect(find.byType(MaterialApp), findsOneWidget);
   });
